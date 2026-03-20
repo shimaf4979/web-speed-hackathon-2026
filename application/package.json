@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --filter @web-speed-hackathon-2026/client build",
-    "start": "pnpm --filter @web-speed-hackathon-2026/server start",
+    "start": "pnpm --filter @web-speed-hackathon-2026/server db:prepare && pnpm --filter @web-speed-hackathon-2026/server start",
     "analyze:lighthouse": "node ./scripts/run-lighthouse.mjs --mode scoring --device desktop",
     "analyze:lighthouse:mobile": "node ./scripts/run-lighthouse.mjs --mode cli --device mobile",
     "analyze:lighthouse:desktop": "node ./scripts/run-lighthouse.mjs --mode scoring --device desktop",
