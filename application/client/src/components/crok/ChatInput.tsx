@@ -20,6 +20,12 @@ interface Props {
 }
 
 let suggestionsPromise: Promise<string[]> | null = null;
+let suggestionIndexPromise: Promise<{
+  extractTokens: typeof import("@web-speed-hackathon-2026/client/src/utils/bm25_search").extractTokens;
+  filterSuggestionsBM25: typeof import("@web-speed-hackathon-2026/client/src/utils/bm25_search").filterSuggestionsBM25;
+  index: import("@web-speed-hackathon-2026/client/src/utils/bm25_search").SuggestionSearchIndex;
+}> | null = null;
+const SUGGESTION_DEBOUNCE_MS = 120;
 
 const fallbackTokenize = (text: string) =>
   (text.toLowerCase().match(/[a-z0-9]+|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+/gu) ??
@@ -31,6 +37,19 @@ async function loadSuggestions(): Promise<string[]> {
     ({ suggestions }) => suggestions,
   );
   return suggestionsPromise;
+}
+
+async function loadSuggestionIndex(tokenizer: Tokenizer<IpadicFeatures>) {
+  suggestionIndexPromise ??= Promise.all([
+    import("@web-speed-hackathon-2026/client/src/utils/bm25_search"),
+    loadSuggestions(),
+  ]).then(([module, candidates]) => ({
+    extractTokens: module.extractTokens,
+    filterSuggestionsBM25: module.filterSuggestionsBM25,
+    index: module.buildSuggestionSearchIndex(tokenizer, candidates),
+  }));
+
+  return suggestionIndexPromise;
 }
 
 // トークン単位でハイライト
@@ -118,12 +137,21 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
 
   useEffect(() => {
     let cancelled = false;
+    let debounceTimeoutId: number | null = null;
 
     const updateSuggestions = async () => {
-      if (!inputValue.trim()) {
+      const trimmedValue = inputValue.trim();
+      if (!trimmedValue || isStreaming) {
         setSuggestions([]);
         setQueryTokens([]);
         setShowSuggestions(false);
+        return;
+      }
+
+      await new Promise<void>((resolve) => {
+        debounceTimeoutId = window.setTimeout(resolve, SUGGESTION_DEBOUNCE_MS);
+      });
+      if (cancelled) {
         return;
       }
 
@@ -137,7 +165,7 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
       }
 
       if (!tokenizer) {
-        const tokens = fallbackTokenize(inputValue);
+        const tokens = fallbackTokenize(trimmedValue);
         const results = candidates
           .filter((candidate) =>
             tokens.some((token) => candidate.toLowerCase().includes(token.toLowerCase())),
@@ -150,11 +178,9 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
         return;
       }
 
-      const [{ extractTokens, filterSuggestionsBM25 }] = await Promise.all([
-        import("@web-speed-hackathon-2026/client/src/utils/bm25_search"),
-      ]);
-      const tokens = extractTokens(tokenizer.tokenize(inputValue));
-      const results = filterSuggestionsBM25(tokenizer, candidates, tokens);
+      const { extractTokens, filterSuggestionsBM25, index } = await loadSuggestionIndex(tokenizer);
+      const tokens = extractTokens(tokenizer.tokenize(trimmedValue));
+      const results = filterSuggestionsBM25(index, tokens);
 
       if (cancelled) {
         return;
@@ -169,8 +195,11 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
 
     return () => {
       cancelled = true;
+      if (debounceTimeoutId !== null) {
+        window.clearTimeout(debounceTimeoutId);
+      }
     };
-  }, [ensureTokenizerLoaded, inputValue, tokenizer]);
+  }, [ensureTokenizerLoaded, inputValue, isStreaming, tokenizer]);
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -229,7 +258,6 @@ export const ChatInput = ({ isStreaming, onSendMessage }: Props) => {
             className="text-cax-text placeholder-cax-text-subtle [field-sizing:content] max-h-[200px] min-h-[52px] flex-1 resize-none overflow-y-auto bg-transparent py-3 pr-2 pl-4 focus:outline-none"
             onChange={handleInputChange}
             onFocus={() => {
-              ensureTokenizerLoaded();
               void loadSuggestions();
             }}
             onKeyDown={handleKeyDown}

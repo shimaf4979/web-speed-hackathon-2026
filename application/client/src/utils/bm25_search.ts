@@ -3,6 +3,11 @@ import type { Tokenizer, IpadicFeatures } from "kuromoji";
 
 const STOP_POS = new Set(["助詞", "助動詞", "記号"]);
 
+export interface SuggestionSearchIndex {
+  bm25: BM25;
+  candidates: string[];
+}
+
 /**
  * 形態素解析で内容語トークン（名詞、動詞、形容詞など）を抽出
  */
@@ -16,23 +21,31 @@ export function extractTokens(tokens: IpadicFeatures[]): string[] {
  * BM25で候補をスコアリングして、クエリと類似度の高い上位10件を返す
  */
 export function filterSuggestionsBM25(
-  tokenizer: Tokenizer<IpadicFeatures>,
-  candidates: string[],
+  index: SuggestionSearchIndex,
   queryTokens: string[],
 ): string[] {
   if (queryTokens.length === 0) return [];
 
-  const bm25 = new BM25({ k1: 1.2, b: 0.75 });
-
-  const tokenizedCandidates = candidates.map((c) => extractTokens(tokenizer.tokenize(c)));
-  bm25.index(tokenizedCandidates);
-
-  const scores = bm25.getScores(queryTokens);
-  const results = candidates.map((text, i) => ({ text, score: scores[i] ?? 0 }));
+  const scores = index.bm25.getScores(queryTokens);
+  const results = index.candidates.map((text, i) => ({ text, score: scores[i] ?? 0 }));
 
   return results
     .filter((s) => s.score > 0)
     .sort((a, b) => a.score - b.score)
     .slice(-10)
     .map((s) => s.text);
+}
+
+export function buildSuggestionSearchIndex(
+  tokenizer: Tokenizer<IpadicFeatures>,
+  candidates: string[],
+): SuggestionSearchIndex {
+  const bm25 = new BM25({ k1: 1.2, b: 0.75 });
+  const tokenizedCandidates = candidates.map((candidate) => extractTokens(tokenizer.tokenize(candidate)));
+  bm25.index(tokenizedCandidates);
+
+  return {
+    bm25,
+    candidates,
+  };
 }
