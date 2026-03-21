@@ -22,8 +22,11 @@ const UUID_ASSET_PATTERN =
 const WEEK_CACHE_EXTENSION_PATTERN = /\.(?:webp|webm|avif|svg)$/i;
 const HOME_TIMELINE_LIMIT = 8;
 const PREFETCH_SCRIPT_MARKER = "<script>window.__PREFETCH_JSON__=window.__PREFETCH_JSON__||{}";
+const TERMS_FONT_PRELOAD_HINT =
+  '<link rel="preload" as="font" href="/fonts/ReiNoAreMincho-Heavy-TermsSubset.woff2" type="font/woff2" crossorigin>';
 const HTML_SNAPSHOT_PATHS = [
   "/",
+  "/terms",
   "/posts/ff93a168-ea7c-4202-9879-672382febfda",
   "/posts/fe6712a1-d9e4-4f6a-987d-e7d08b7f8a46",
   "/posts/fff790f5-99ea-432f-8f79-21d3d49efd1a",
@@ -98,16 +101,23 @@ async function getBaseHtml(): Promise<string> {
   return baseHtmlPromise;
 }
 
-function createImagePreloadHint(imageId: string, variant: "full" | "thumb"): string {
+async function createImagePreloadHint(imageId: string, variant: "full" | "thumb"): Promise<string> {
   const suffix = variant === "thumb" ? ".thumb" : "";
-  return `<link rel="preload" as="image" href="/images/${imageId}${suffix}.webp" fetchpriority="high">`;
+  const avifPath = path.resolve(PUBLIC_PATH, `./images/${imageId}${suffix}.avif`);
+
+  try {
+    await fs.access(avifPath);
+    return `<link rel="preload" as="image" href="/images/${imageId}${suffix}.avif" type="image/avif" fetchpriority="high">`;
+  } catch {
+    return `<link rel="preload" as="image" href="/images/${imageId}${suffix}.webp" fetchpriority="high">`;
+  }
 }
 
 function createMoviePreloadHint(movieId: string): string {
   return `<link rel="preload" as="video" href="/movies/${movieId}.webm" fetchpriority="high">`;
 }
 
-function createPostPreloadHint(post: any, variant: "full" | "thumb"): string {
+async function createPostPreloadHint(post: any, variant: "full" | "thumb"): Promise<string> {
   const firstImage = Array.isArray(post.images) ? post.images[0] : undefined;
   if (firstImage?.id) {
     return createImagePreloadHint(firstImage.id, variant);
@@ -133,7 +143,14 @@ async function buildPageInjection(reqPath: string): Promise<PageInjection | null
         `window.__HOME_TIMELINE_PREFETCH__=${escapeInlineJson(posts)};`,
         "window.__PREFETCH_TIMELINE__=Promise.resolve(window.__HOME_TIMELINE_PREFETCH__);",
       ].join(""),
-      preloadHints: firstMediaPost ? createPostPreloadHint(firstMediaPost as any, "thumb") : "",
+      preloadHints: firstMediaPost ? await createPostPreloadHint(firstMediaPost as any, "thumb") : "",
+    };
+  }
+
+  if (reqPath === "/terms") {
+    return {
+      inlineScript: "",
+      preloadHints: TERMS_FONT_PRELOAD_HINT,
     };
   }
 
@@ -157,7 +174,7 @@ async function buildPageInjection(reqPath: string): Promise<PageInjection | null
     inlineScript:
       `window.__PREFETCH_JSON__=window.__PREFETCH_JSON__||{};` +
       `window.__PREFETCH_JSON__[${escapeInlineJson(apiPath)}]=${escapeInlineJson(post)};`,
-    preloadHints: createPostPreloadHint(post as any, "full"),
+    preloadHints: await createPostPreloadHint(post as any, "thumb"),
   };
 }
 
@@ -247,6 +264,23 @@ const sendPostHtml = async (req: Request, res: Response, next: (error?: unknown)
 };
 
 staticRouter.get("/", sendHomeHtml);
+const sendTermsHtml = async (_req: Request, res: Response, next: (error?: unknown) => void) => {
+  try {
+    const html = await getInjectedHtml("/terms");
+    if (html == null) {
+      sendIndexHtml(res);
+      return;
+    }
+
+    res.setHeader("Cache-Control", REVALIDATE_CACHE_HEADER);
+    res.type("html").send(html);
+  } catch (error) {
+    next(error);
+  }
+};
+
+staticRouter.get("/terms", sendTermsHtml);
+staticRouter.get("/terms/", sendTermsHtml);
 staticRouter.get("/posts/:postId", sendPostHtml);
 staticRouter.get("/posts/:postId/", sendPostHtml);
 
