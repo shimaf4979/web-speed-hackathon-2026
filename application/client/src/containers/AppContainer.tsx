@@ -6,6 +6,7 @@ import { PostPageSkeleton } from "@web-speed-hackathon-2026/client/src/component
 import { AuthModalContainer } from "@web-speed-hackathon-2026/client/src/containers/AuthModalContainer";
 import { NewPostModalContainer } from "@web-speed-hackathon-2026/client/src/containers/NewPostModalContainer";
 import { NotFoundContainer } from "@web-speed-hackathon-2026/client/src/containers/NotFoundContainer";
+import { SearchContainer } from "@web-speed-hackathon-2026/client/src/containers/SearchContainer";
 import { TimelineContainer } from "@web-speed-hackathon-2026/client/src/containers/TimelineContainer";
 import { fetchJSON } from "@web-speed-hackathon-2026/client/src/utils/fetch_json";
 
@@ -31,11 +32,6 @@ const DirectMessageListContainer = lazy(async () =>
 const PostContainer = lazy(async () =>
   import("@web-speed-hackathon-2026/client/src/containers/PostContainer").then((module) => ({
     default: module.PostContainer,
-  })),
-);
-const SearchContainer = lazy(async () =>
-  import("@web-speed-hackathon-2026/client/src/containers/SearchContainer").then((module) => ({
-    default: module.SearchContainer,
   })),
 );
 const TermContainer = lazy(async () =>
@@ -111,11 +107,7 @@ export const AppContainer = () => {
             path="/dm/:conversationId"
           />
           <Route
-            element={
-              <LazyRoute>
-                <SearchContainer />
-              </LazyRoute>
-            }
+            element={<SearchContainer />}
             path="/search"
           />
           <Route
