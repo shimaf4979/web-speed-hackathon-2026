@@ -11,7 +11,7 @@ interface Params {
 export async function createTranslator(params: Params): Promise<Translator> {
   return {
     async translate(text: string): Promise<string> {
-      const res = await fetch("/api/v1/translate", {
+      const response = await fetch("/api/v1/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -22,12 +22,12 @@ export async function createTranslator(params: Params): Promise<Translator> {
         credentials: "same-origin",
       });
 
-      if (!res.ok) {
-        throw new Error(`Translation failed: ${res.status}`);
+      if (!response.ok) {
+        throw new Error(`Translation failed: ${response.status}`);
       }
 
-      const data = (await res.json()) as { result: string };
-      return data.result;
+      const payload = (await response.json()) as { result: string };
+      return payload.result;
     },
     [Symbol.dispose]: () => {},
   };

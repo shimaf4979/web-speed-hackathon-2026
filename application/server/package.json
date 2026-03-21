@@ -15,6 +15,7 @@
     "seed:sync-sound-waveforms": "tsx ./scripts/syncSoundWaveformPeaks.ts"
   },
   "dependencies": {
+    "@google-cloud/translate": "9.3.0",
     "@tsconfig/strictest": "2.0.8",
     "@web-speed-hackathon-2026/server": "workspace:*",
     "bcrypt": "6.0.0",
