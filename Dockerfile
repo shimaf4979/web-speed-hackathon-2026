@@ -10,21 +10,21 @@ LABEL fly_launch_runtime="Node.js"
 ENV PNPM_HOME=/pnpm
 
 WORKDIR /app
-RUN --mount=type=cache,target=/root/.npm npm install -g pnpm@${PNPM_VERSION}
+RUN npm install -g pnpm@${PNPM_VERSION}
 
 FROM base AS build
 
 COPY ./application/package.json ./application/pnpm-lock.yaml ./application/pnpm-workspace.yaml ./
 COPY ./application/client/package.json ./client/package.json
 COPY ./application/server/package.json ./server/package.json
-RUN --mount=type=cache,target=/pnpm/store pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 COPY ./application .
 
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm build
 RUN pnpm --filter @web-speed-hackathon-2026/server db:prepare
 
-RUN --mount=type=cache,target=/pnpm/store CI=true pnpm install --frozen-lockfile --prod --filter @web-speed-hackathon-2026/server
+RUN CI=true pnpm install --frozen-lockfile --prod --filter @web-speed-hackathon-2026/server
 
 RUN rm -rf client/src client/types client/rspack.config.js client/tsconfig.json client/vitest.config.ts client/postcss.config.js client/node_modules e2e/ reports/ scripts/
 
