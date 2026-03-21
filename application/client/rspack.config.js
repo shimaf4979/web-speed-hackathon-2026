@@ -1,6 +1,7 @@
 const path = require("path");
 
 const { rspack } = require("@rspack/core");
+const { RsdoctorRspackPlugin } = require("@rsdoctor/rspack-plugin");
 const { BundleAnalyzerPlugin } = require("webpack-bundle-analyzer");
 
 const SRC_PATH = path.resolve(__dirname, "./src");
@@ -9,6 +10,9 @@ const UPLOAD_PATH = path.resolve(__dirname, "../upload");
 const DIST_PATH = path.resolve(__dirname, "../dist");
 const REPORTS_PATH = path.resolve(__dirname, "../reports");
 const SHOULD_ANALYZE = process.env.ANALYZE === "true";
+const SHOULD_ANALYZE_RSDOCTOR = process.env.RSDOCTOR === "true";
+const REACT_ROUTER_PACKAGE_PATH = path.dirname(require.resolve("react-router/package.json"));
+const REACT_ROUTER_PRODUCTION_ENTRY = path.resolve(REACT_ROUTER_PACKAGE_PATH, "dist/production/index.mjs");
 
 /** @type {import('@rspack/core').Configuration} */
 const config = {
@@ -115,12 +119,34 @@ const config = {
           }),
         ]
       : []),
+    ...(SHOULD_ANALYZE_RSDOCTOR
+      ? [
+          new RsdoctorRspackPlugin({
+            disableClientServer: true,
+            reportDir: REPORTS_PATH,
+            output: {
+              mode: "brief",
+              options: {
+                type: ["html", "json"],
+                htmlOptions: {
+                  reportHtmlName: "rsdoctor-report.html",
+                  writeDataJson: true,
+                },
+                jsonOptions: {
+                  fileName: "rsdoctor-data.json",
+                },
+              },
+            },
+          }),
+        ]
+      : []),
   ],
   resolve: {
     extensions: [".tsx", ".ts", ".mjs", ".cjs", ".jsx", ".js"],
     alias: {
       "bayesian-bm25$": path.resolve(__dirname, "node_modules", "bayesian-bm25/dist/index.js"),
       ["kuromoji$"]: path.resolve(__dirname, "node_modules", "kuromoji/build/kuromoji.js"),
+      "react-router$": REACT_ROUTER_PRODUCTION_ENTRY,
     },
     fallback: {
       fs: false,
@@ -132,6 +158,7 @@ const config = {
     minimize: true,
     splitChunks: {
       chunks: "async",
+      maxAsyncSize: 160000,
       minRemainingSize: 0,
       cacheGroups: {
         vendor: {

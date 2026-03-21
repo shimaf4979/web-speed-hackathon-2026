@@ -34,3 +34,11 @@ restart: stop start
 status:
   @if [ -f "{{frontend_pid_file}}" ] && kill -0 "$$(cat "{{frontend_pid_file}}")" 2>/dev/null; then echo "frontend: running (pid: $$(cat "{{frontend_pid_file}}"))"; else echo "frontend: stopped"; fi
   @if [ -f "{{backend_pid_file}}" ] && kill -0 "$$(cat "{{backend_pid_file}}")" 2>/dev/null; then echo "backend: running (pid: $$(cat "{{backend_pid_file}}"))"; else echo "backend: stopped"; fi
+
+[group('分析')]
+analyze-bundle:
+  @pnpm run analyze:bundle
+
+[group('分析')]
+analyze-rsdoctor:
+  @pnpm run analyze:rsdoctor

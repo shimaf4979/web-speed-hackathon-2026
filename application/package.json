@@ -5,6 +5,8 @@
   "author": "CyberAgent, Inc.",
   "type": "module",
   "scripts": {
+    "analyze:bundle": "pnpm --filter @web-speed-hackathon-2026/client analyze",
+    "analyze:rsdoctor": "pnpm --filter @web-speed-hackathon-2026/client analyze:rsdoctor",
     "build": "pnpm --filter @web-speed-hackathon-2026/client build",
     "start": "pnpm --filter @web-speed-hackathon-2026/server db:prepare && pnpm --filter @web-speed-hackathon-2026/server start",
     "analyze:lighthouse": "node ./scripts/run-lighthouse.mjs --mode scoring --device desktop",
